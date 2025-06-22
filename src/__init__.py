@@ -3,6 +3,9 @@ import matplotlib.pyplot as plt
 import time
 from typing import List, Tuple, Set
 
+# [Location Class and ChargingStationPlacer Class remain the same as before]
+# ... (paste them here) ...
+
 
 class Location:
     def __init__(self, x: float, y: float, cost: float = 1.0, weight: float = 1.0):
@@ -11,7 +14,7 @@ class Location:
         self.cost = cost
         self.weight = weight
 
-    def distance_to(self, other: 'Location') -> float:
+    def distance_to(self, other: "Location") -> float:
         return np.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2)
 
     def __repr__(self):
@@ -19,8 +22,12 @@ class Location:
 
 
 class ChargingStationPlacer:
-    def __init__(self, candidates: List[Location], demands: List[Location],
-                 service_radius: float = 2.0):
+    def __init__(
+        self,
+        candidates: List[Location],
+        demands: List[Location],
+        service_radius: float = 2.0,
+    ):
         self.candidates = candidates
         self.demands = demands
         self.service_radius = service_radius
@@ -31,8 +38,10 @@ class ChargingStationPlacer:
         """Calculate additional weighted coverage provided by a new station."""
         new_coverage = 0.0
         for i, demand in enumerate(self.demands):
-            if (i not in self.covered_demands and
-                    station.distance_to(demand) <= self.service_radius):
+            if (
+                i not in self.covered_demands
+                and station.distance_to(demand) <= self.service_radius
+            ):
                 new_coverage += demand.weight
         return new_coverage
 
@@ -67,157 +76,478 @@ class ChargingStationPlacer:
 
         for iteration in range(k):
             best_station = None
-            best_score = float('-inf')
+            best_score = float("-inf")
 
             if verbose:
                 print(f"Iteration {iteration + 1}:")
 
             # Evaluate all remaining candidates
-            for candidate in self.candidates:
+            for candidate_idx, candidate in enumerate(
+                self.candidates
+            ):  # Use enumerate if you need index
                 if candidate not in self.selected_stations:
                     new_coverage = self.calculate_new_coverage(candidate)
                     score = new_coverage - candidate.cost
 
-                    if verbose:
-                        print(f"Evaluating location ({candidate.x}, {candidate.y})... "
-                              f"Score: {score:.1f}")
+                    if (
+                        verbose and iteration < 2 and candidate_idx < 5
+                    ):  # Limit verbose candidate evals
+                        print(
+                            f"  Evaluating candidate ({candidate.x:.1f}, {candidate.y:.1f}), cost {candidate.cost:.1f} -> new_coverage {new_coverage:.1f}, score: {score:.1f}"
+                        )
 
                     if score > best_score:
                         best_score = score
                         best_station = candidate
 
-            # Place the best station if beneficial
             if best_station is not None and best_score > 0:
                 self.selected_stations.append(best_station)
                 self.update_coverage(best_station)
 
                 if verbose:
-                    print(f"Selected: Location ({best_station.x}, {best_station.y}) "
-                          f"- Score: {best_score:.1f}\n")
+                    print(
+                        f"  Selected: Location ({best_station.x:.1f}, {best_station.y:.1f}) "
+                        f"- Score: {best_score:.1f}, Total Covered Demands: {len(self.covered_demands)}\n"
+                    )
             else:
                 if verbose:
-                    print("No beneficial locations remaining.\n")
+                    print("  No beneficial locations remaining or K stations placed.\n")
                 break
 
         execution_time = time.time() - start_time
-
-        # Calculate final statistics
-        total_coverage = len(self.covered_demands)
-        total_cost = sum(station.cost for station in self.selected_stations)
-        total_benefit = sum(self.demands[i].weight for i in self.covered_demands)
-        net_benefit = total_benefit - total_cost
+        total_coverage = 0
+        if self.demands:  # Avoid division by zero if no demands
+            total_coverage = len(self.covered_demands) / len(self.demands) * 100
 
         if verbose:
             print("Final Results:")
-            print(f"- Selected stations: {[(s.x, s.y) for s in self.selected_stations]}")
-            print(f"- Total coverage: {total_coverage}/{len(self.demands)} "
-                  f"demand points ({100 * total_coverage / len(self.demands):.1f}%)")
-            print(f"- Total cost: {total_cost:.1f} units")
-            print(f"- Net benefit: {net_benefit:.1f} units")
-            print(f"- Execution time: {execution_time:.3f} seconds")
+            selected_coords = [
+                (round(s.x, 1), round(s.y, 1)) for s in self.selected_stations
+            ]
+            print(f"- Selected stations: {selected_coords}")
+
+            total_demand_points = (
+                len(self.demands) if self.demands else 1
+            )  # Avoid division by zero
+            coverage_percentage = (
+                (len(self.covered_demands) / total_demand_points * 100)
+                if total_demand_points > 0
+                else 0
+            )
+            print(
+                f"- Total coverage: {len(self.covered_demands)}/{len(self.demands)} "
+                f"demand points ({coverage_percentage:.1f}%)"
+            )
+            total_station_cost = sum(station.cost for station in self.selected_stations)
+            print(f"- Total cost of selected stations: {total_station_cost:.1f} units")
+
+            total_benefit_value = sum(
+                self.demands[i].weight for i in self.covered_demands
+            )
+            net_benefit = total_benefit_value - total_station_cost
+            print(
+                f"- Total weighted benefit from covered demands: {total_benefit_value:.1f}"
+            )
+            print(
+                f"- Net benefit (weighted benefit - total cost): {net_benefit:.1f} units"
+            )
+            print(f"- Execution time: {execution_time:.3f} seconds\n")
 
         return self.selected_stations
 
-    def visualize_solution(self):
+    def visualize_solution(self, title_suffix=""):
         """Create a visualization of the placement solution."""
+        if not self.demands and not self.candidates:  # Nothing to plot
+            print("No data to visualize.")
+            return
+
         plt.figure(figsize=(10, 8))
 
         # Plot demand points
-        demand_x = [d.x for d in self.demands]
-        demand_y = [d.y for d in self.demands]
-        demand_weights = [d.weight for d in self.demands]
-        plt.scatter(demand_x, demand_y, c='blue', s=np.array(demand_weights) * 20,
-                    alpha=0.6, label='Demand Points')
+        if self.demands:
+            demand_x = [d.x for d in self.demands]
+            demand_y = [d.y for d in self.demands]
+            demand_weights = [d.weight for d in self.demands]
+            plt.scatter(
+                demand_x,
+                demand_y,
+                c="blue",
+                s=np.array(demand_weights) * 20 + 10,  # Ensure minimum size
+                alpha=0.6,
+                label="Demand Points (size by weight)",
+            )
 
         # Plot candidate locations
-        candidate_x = [c.x for c in self.candidates]
-        candidate_y = [c.y for c in self.candidates]
-        plt.scatter(candidate_x, candidate_y, c='lightgray', marker='s',
-                    s=50, alpha=0.5, label='Candidate Locations')
+        if self.candidates:
+            candidate_x = [c.x for c in self.candidates]
+            candidate_y = [c.y for c in self.candidates]
+            candidate_costs = [
+                c.cost for c in self.candidates
+            ]  # For potential coloring/sizing
+            plt.scatter(
+                candidate_x,
+                candidate_y,
+                c="lightgray",  # Or use costs for color: c=candidate_costs, cmap='viridis_r'
+                marker="s",
+                s=30,  # Or size by cost: s=np.array(candidate_costs) * 3 + 20
+                alpha=0.5,
+                label="Candidate Locations",
+            )
 
         # Plot selected stations and their coverage
+        # Create a unique label for selected stations for the legend
+        plotted_selected_label = False
         for station in self.selected_stations:
-            # Station location
-            plt.scatter(station.x, station.y, c='red', marker='s', s=100,
-                        edgecolors='black', linewidth=2, label='Selected Station'
-                if station == self.selected_stations[0] else "")
+            station_label = ""
+            if not plotted_selected_label:
+                station_label = "Selected Station"
+                plotted_selected_label = True
+
+            plt.scatter(
+                station.x,
+                station.y,
+                c="red",
+                marker="P",  # Use a different marker like 'P' for Plus or 'X'
+                s=150,  # Make selected stations more prominent
+                edgecolors="black",
+                linewidth=1.5,
+                label=station_label,
+                zorder=5,  # Ensure selected stations are on top
+            )
 
             # Coverage circle
-            circle = plt.Circle((station.x, station.y), self.service_radius,
-                                color='red', fill=False, alpha=0.3, linestyle='--')
+            circle = plt.Circle(
+                (station.x, station.y),
+                self.service_radius,
+                color="red",
+                fill=True,  # Fill the circle for better visibility of coverage
+                alpha=0.15,  # Use a light alpha for fill
+                linestyle="--",
+                linewidth=1,
+                zorder=3,  # Below selected station markers but above candidates
+            )
             plt.gca().add_patch(circle)
 
-        plt.xlabel('X Coordinate')
-        plt.ylabel('Y Coordinate')
-        plt.title('EV Charging Station Placement Solution')
-        plt.legend()
+        plt.xlabel("X Coordinate")
+        plt.ylabel("Y Coordinate")
+        plt.title(f"EV Charging Station Placement{title_suffix}")
+        plt.legend(
+            loc="upper right", bbox_to_anchor=(1.25, 1)
+        )  # Adjust legend position
         plt.grid(True, alpha=0.3)
-        plt.axis('equal')
-        plt.tight_layout()
+        plt.axis("equal")  # Important for circles to look like circles
+        plt.tight_layout(rect=[0, 0, 0.85, 1])  # Adjust layout to make space for legend
         plt.show()
 
 
-def generate_test_instance(n_candidates: int, n_demands: int,
-                           area_size: Tuple[int, int] = (10, 10)) -> Tuple[List[Location], List[Location]]:
-    """Generate a random test instance."""
-    np.random.seed(42)  # For reproducible results
+# --- Generator for the original test instance ---
+def generate_uniform_random_instance(
+    n_candidates: int,
+    n_demands: int,
+    area_size: Tuple[int, int] = (10, 10),
+    seed: int = 42,
+) -> Tuple[List[Location], List[Location]]:
+    """Generate a random test instance with uniform distribution."""
+    if seed is not None:
+        np.random.seed(seed)
 
-    # Generate candidate locations
     candidates = []
     for _ in range(n_candidates):
         x = np.random.uniform(0, area_size[0])
         y = np.random.uniform(0, area_size[1])
-        cost = np.random.uniform(5, 15)  # Random installation cost
-        candidates.append(Location(x, y, cost))
+        cost = np.random.uniform(5, 15)
+        candidates.append(Location(x, y, cost=cost))
 
-    # Generate demand points
     demands = []
     for _ in range(n_demands):
         x = np.random.uniform(0, area_size[0])
         y = np.random.uniform(0, area_size[1])
-        weight = np.random.uniform(1, 5)  # Random demand weight
+        weight = np.random.uniform(1, 5)
         demands.append(Location(x, y, weight=weight))
-
     return candidates, demands
 
 
+# --- New Generator Functions ---
+def generate_clustered_demands_instance(
+    n_candidates: int,
+    n_demands_per_cluster: int,
+    n_clusters: int,
+    area_size: Tuple[int, int] = (20, 20),
+    cluster_spread: float = 2.0,
+    seed: int = 101,
+) -> Tuple[List[Location], List[Location]]:
+    if seed is not None:
+        np.random.seed(seed)
+
+    # Uniformly distributed candidates
+    candidates = []
+    for _ in range(n_candidates):
+        x = np.random.uniform(0, area_size[0])
+        y = np.random.uniform(0, area_size[1])
+        cost = np.random.uniform(5, 20)
+        candidates.append(Location(x, y, cost=cost))
+
+    # Clustered demands
+    demands = []
+    for _ in range(n_clusters):
+        # Determine a center for this cluster
+        center_x = np.random.uniform(cluster_spread, area_size[0] - cluster_spread)
+        center_y = np.random.uniform(cluster_spread, area_size[1] - cluster_spread)
+        for _ in range(n_demands_per_cluster):
+            # Generate demand points around the cluster center using a normal distribution
+            x = np.random.normal(center_x, cluster_spread / 2)
+            y = np.random.normal(center_y, cluster_spread / 2)
+            # Clip to stay within bounds (optional, or regenerate if out of bounds)
+            x = np.clip(x, 0, area_size[0])
+            y = np.clip(y, 0, area_size[1])
+            weight = np.random.uniform(2, 6)  # Higher weight for clustered demands
+            demands.append(Location(x, y, weight=weight))
+    return candidates, demands
+
+
+def generate_high_cost_prime_candidates_instance(
+    n_candidates: int,
+    n_demands: int,
+    area_size: Tuple[int, int] = (15, 15),
+    seed: int = 202,
+) -> Tuple[List[Location], List[Location]]:
+    if seed is not None:
+        np.random.seed(seed)
+
+    # Generate demands (e.g., somewhat centered)
+    demands = []
+    center_area_x, center_area_y = area_size[0] / 2, area_size[1] / 2
+    for _ in range(n_demands):
+        x = np.random.normal(center_area_x, area_size[0] / 4)
+        y = np.random.normal(center_area_y, area_size[1] / 4)
+        x = np.clip(x, 0, area_size[0])
+        y = np.clip(y, 0, area_size[1])
+        weight = np.random.uniform(1, 5)
+        demands.append(Location(x, y, weight=weight))
+
+    # Generate candidates: some cheap & remote, some expensive & central
+    candidates = []
+    num_prime_candidates = n_candidates // 3
+    for i in range(n_candidates):
+        if i < num_prime_candidates:  # Prime, expensive candidates
+            x = np.random.normal(center_area_x, area_size[0] / 5)
+            y = np.random.normal(center_area_y, area_size[1] / 5)
+            cost = np.random.uniform(25, 50)  # High cost
+        else:  # Cheaper, more spread out candidates
+            x = np.random.uniform(0, area_size[0])
+            y = np.random.uniform(0, area_size[1])
+            cost = np.random.uniform(5, 15)  # Low cost
+        x = np.clip(x, 0, area_size[0])
+        y = np.clip(y, 0, area_size[1])
+        candidates.append(Location(x, y, cost=cost))
+    return candidates, demands
+
+
+def generate_limited_candidates_instance(
+    n_candidates: int,
+    n_demands: int,
+    area_size: Tuple[int, int] = (10, 10),
+    seed: int = 303,
+) -> Tuple[List[Location], List[Location]]:
+    if seed is not None:
+        np.random.seed(seed)
+    # Few candidates, potentially spread out
+    candidates = []
+    for _ in range(n_candidates):
+        x = np.random.uniform(0, area_size[0])
+        y = np.random.uniform(0, area_size[1])
+        cost = np.random.uniform(8, 12)
+        candidates.append(Location(x, y, cost=cost))
+
+    # Many demands, potentially more than candidates can easily cover
+    demands = []
+    for _ in range(n_demands):
+        x = np.random.uniform(0, area_size[0])
+        y = np.random.uniform(0, area_size[1])
+        weight = np.random.uniform(1, 3)
+        demands.append(Location(x, y, weight=weight))
+    return candidates, demands
+
+
+def run_and_visualize_instance(
+    generator_func, k_stations, service_radius, title_suffix, *args, **kwargs
+):
+    print(f"\n--- Running Instance: {title_suffix} ---")
+    candidates, demands = generator_func(*args, **kwargs)
+    placer = ChargingStationPlacer(candidates, demands, service_radius=service_radius)
+    placer.greedy_placement(k=k_stations, verbose=True)  # Set verbose True for details
+    placer.visualize_solution(title_suffix=f" ({title_suffix})")
+    return placer  # Return for further analysis if needed
+
+
+# [run_performance_test function remains the same, or you can integrate these new generators]
+# ...
+
+
 def run_performance_test():
-    """Run performance tests on different problem sizes."""
-    problem_sizes = [
-        (10, 15, 3),  # Small
-        (50, 100, 10),  # Medium
-        (200, 500, 25)  # Large
+    """Run performance tests on different problem sizes using uniform random instances."""
+    problem_configs = [
+        {
+            "name": "Small Uniform",
+            "gen_func": generate_uniform_random_instance,
+            "args": (20, 30),
+            "k": 3,
+            "radius": 2.0,
+            "seed": 42,
+        },
+        {
+            "name": "Medium Uniform",
+            "gen_func": generate_uniform_random_instance,
+            "args": (50, 100),
+            "k": 7,
+            "radius": 2.5,
+            "seed": 43,
+        },
+        {
+            "name": "Large Uniform",
+            "gen_func": generate_uniform_random_instance,
+            "args": (100, 300),
+            "k": 10,
+            "radius": 3.0,
+            "seed": 44,
+        },
+        {
+            "name": "Medium Clustered Demands",
+            "gen_func": generate_clustered_demands_instance,
+            "args": (60, 25, 3),
+            "k": 5,
+            "radius": 3.0,
+            "seed": 101,
+        },  # 60 cand, 25 dem/cluster, 3 clusters
+        {
+            "name": "Medium High Cost Prime",
+            "gen_func": generate_high_cost_prime_candidates_instance,
+            "args": (45, 80),
+            "k": 6,
+            "radius": 2.5,
+            "seed": 202,
+        },
     ]
 
     print("Performance Test Results:")
-    print("-" * 50)
+    print("-" * 70)
+    print(
+        f"{'Test Name':<30} | {'Time (s)':<10} | {'Coverage (%)':<15} | {'Net Benefit':<10}"
+    )
+    print("-" * 70)
 
-    for n_candidates, n_demands, k in problem_sizes:
-        candidates, demands = generate_test_instance(n_candidates, n_demands)
-        placer = ChargingStationPlacer(candidates, demands, service_radius=2.0)
+    for config in problem_configs:
+        candidates, demands = config["gen_func"](
+            *config["args"], seed=config.get("seed")
+        )
+        placer = ChargingStationPlacer(
+            candidates, demands, service_radius=config["radius"]
+        )
 
         start_time = time.time()
-        placer.greedy_placement(k, verbose=False)
+        placer.greedy_placement(
+            config["k"], verbose=False
+        )  # Keep verbose false for perf test
         execution_time = time.time() - start_time
 
-        coverage_rate = len(placer.covered_demands) / len(demands) * 100
+        total_demand_points = len(placer.demands) if placer.demands else 1
+        coverage_rate = (
+            (len(placer.covered_demands) / total_demand_points * 100)
+            if total_demand_points > 0
+            else 0
+        )
+        total_station_cost = sum(station.cost for station in placer.selected_stations)
+        total_benefit_value = sum(
+            placer.demands[i].weight for i in placer.covered_demands
+        )
+        net_benefit = total_benefit_value - total_station_cost
 
-        print(f"Size ({n_candidates}, {n_demands}, {k}): "
-              f"{execution_time:.3f}s, Coverage: {coverage_rate:.1f}%")
+        print(
+            f"{config['name']:<30} | {execution_time:<10.3f} | {coverage_rate:<15.1f} | {net_benefit:<10.1f}"
+        )
+    print("-" * 70)
 
 
-# Main execution
+# --- Main Execution Block ---
 if __name__ == "__main__":
-    # Generate test instance
-    candidates, demands = generate_test_instance(10, 15)
+    # Instance 1: Original Uniform Random (for comparison)
+    run_and_visualize_instance(
+        generate_uniform_random_instance,
+        k_stations=3,
+        service_radius=2.5,
+        title_suffix="Uniform Random",
+        n_candidates=25,
+        n_demands=40,
+        area_size=(10, 10),
+        seed=42,
+    )
 
-    # Create placer and solve
-    placer = ChargingStationPlacer(candidates, demands, service_radius=2.0)
-    solution = placer.greedy_placement(k=3)
+    # Instance 2: Clustered Demands
+    run_and_visualize_instance(
+        generate_clustered_demands_instance,
+        k_stations=4,
+        service_radius=3.0,
+        title_suffix="Clustered Demands",
+        n_candidates=50,
+        n_demands_per_cluster=20,
+        n_clusters=3,
+        area_size=(20, 20),
+        cluster_spread=2.5,
+        seed=101,
+    )
 
-    # Visualize solution
-    placer.visualize_solution()
+    # Instance 3: High Cost Prime Candidates
+    run_and_visualize_instance(
+        generate_high_cost_prime_candidates_instance,
+        k_stations=5,
+        service_radius=3.0,
+        title_suffix="High Cost Prime Candidates",
+        n_candidates=40,
+        n_demands=60,
+        area_size=(15, 15),
+        seed=202,
+    )
 
-    # Run performance tests
+    # Instance 4: Limited Candidates, Many Demands
+    run_and_visualize_instance(
+        generate_limited_candidates_instance,
+        k_stations=3,
+        service_radius=2.0,
+        title_suffix="Limited Candidates",
+        n_candidates=10,
+        n_demands=50,
+        area_size=(10, 10),
+        seed=303,
+    )
+
+    # Instance 5: Varying Service Radius (using the same generated instance)
+    print("\n--- Running Instance: Varying Service Radius (Clustered Demands data) ---")
+    candidates_var_rad, demands_var_rad = generate_clustered_demands_instance(
+        n_candidates=50,
+        n_demands_per_cluster=15,
+        n_clusters=2,
+        area_size=(15, 15),
+        cluster_spread=2.0,
+        seed=404,
+    )
+
+    placer_low_radius = ChargingStationPlacer(
+        candidates_var_rad, demands_var_rad, service_radius=1.5
+    )
+    placer_low_radius.greedy_placement(k=3, verbose=True)
+    placer_low_radius.visualize_solution(title_suffix=" (Clustered, Low Radius R=1.5)")
+
+    placer_high_radius = ChargingStationPlacer(
+        candidates_var_rad, demands_var_rad, service_radius=3.5
+    )
+    # Important: The ChargingStationPlacer state (selected_stations, covered_demands) is instance-specific.
+    # So using a new placer object is correct. If you reused placer_low_radius and just changed its radius,
+    # you'd need to reset its state before calling greedy_placement again.
+    placer_high_radius.greedy_placement(k=3, verbose=True)
+    placer_high_radius.visualize_solution(
+        title_suffix=" (Clustered, High Radius R=3.5)"
+    )
+
+    # Run consolidated performance tests
     print("\n" + "=" * 60 + "\n")
     run_performance_test()
