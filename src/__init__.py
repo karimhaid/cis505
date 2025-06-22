@@ -3,9 +3,6 @@ import matplotlib.pyplot as plt
 import time
 from typing import List, Tuple, Set
 
-# [Location Class and ChargingStationPlacer Class remain the same as before]
-# ... (paste them here) ...
-
 
 class Location:
     def __init__(self, x: float, y: float, cost: float = 1.0, weight: float = 1.0):
@@ -81,17 +78,16 @@ class ChargingStationPlacer:
             if verbose:
                 print(f"Iteration {iteration + 1}:")
 
-            # Evaluate all remaining candidates
             for candidate_idx, candidate in enumerate(
                 self.candidates
-            ):  # Use enumerate if you need index
+            ):
                 if candidate not in self.selected_stations:
                     new_coverage = self.calculate_new_coverage(candidate)
                     score = new_coverage - candidate.cost
 
                     if (
                         verbose and iteration < 2 and candidate_idx < 5
-                    ):  # Limit verbose candidate evals
+                    ):
                         print(
                             f"  Evaluating candidate ({candidate.x:.1f}, {candidate.y:.1f}), cost {candidate.cost:.1f} -> new_coverage {new_coverage:.1f}, score: {score:.1f}"
                         )
@@ -116,7 +112,7 @@ class ChargingStationPlacer:
 
         execution_time = time.time() - start_time
         total_coverage = 0
-        if self.demands:  # Avoid division by zero if no demands
+        if self.demands:
             total_coverage = len(self.covered_demands) / len(self.demands) * 100
 
         if verbose:
@@ -128,7 +124,7 @@ class ChargingStationPlacer:
 
             total_demand_points = (
                 len(self.demands) if self.demands else 1
-            )  # Avoid division by zero
+            )
             coverage_percentage = (
                 (len(self.covered_demands) / total_demand_points * 100)
                 if total_demand_points > 0
@@ -157,13 +153,12 @@ class ChargingStationPlacer:
 
     def visualize_solution(self, title_suffix=""):
         """Create a visualization of the placement solution."""
-        if not self.demands and not self.candidates:  # Nothing to plot
+        if not self.demands and not self.candidates:
             print("No data to visualize.")
             return
 
         plt.figure(figsize=(10, 8))
 
-        # Plot demand points
         if self.demands:
             demand_x = [d.x for d in self.demands]
             demand_y = [d.y for d in self.demands]
@@ -172,30 +167,27 @@ class ChargingStationPlacer:
                 demand_x,
                 demand_y,
                 c="blue",
-                s=np.array(demand_weights) * 20 + 10,  # Ensure minimum size
+                s=np.array(demand_weights) * 20 + 10,
                 alpha=0.6,
                 label="Demand Points (size by weight)",
             )
 
-        # Plot candidate locations
         if self.candidates:
             candidate_x = [c.x for c in self.candidates]
             candidate_y = [c.y for c in self.candidates]
             candidate_costs = [
                 c.cost for c in self.candidates
-            ]  # For potential coloring/sizing
+            ]
             plt.scatter(
                 candidate_x,
                 candidate_y,
-                c="lightgray",  # Or use costs for color: c=candidate_costs, cmap='viridis_r'
+                c="lightgray",
                 marker="s",
-                s=30,  # Or size by cost: s=np.array(candidate_costs) * 3 + 20
+                s=30,
                 alpha=0.5,
                 label="Candidate Locations",
             )
 
-        # Plot selected stations and their coverage
-        # Create a unique label for selected stations for the legend
         plotted_selected_label = False
         for station in self.selected_stations:
             station_label = ""
@@ -207,24 +199,23 @@ class ChargingStationPlacer:
                 station.x,
                 station.y,
                 c="red",
-                marker="P",  # Use a different marker like 'P' for Plus or 'X'
-                s=150,  # Make selected stations more prominent
+                marker="P",
+                s=150,
                 edgecolors="black",
                 linewidth=1.5,
                 label=station_label,
-                zorder=5,  # Ensure selected stations are on top
+                zorder=5,
             )
 
-            # Coverage circle
             circle = plt.Circle(
                 (station.x, station.y),
                 self.service_radius,
                 color="red",
-                fill=True,  # Fill the circle for better visibility of coverage
-                alpha=0.15,  # Use a light alpha for fill
+                fill=True,
+                alpha=0.15,
                 linestyle="--",
                 linewidth=1,
-                zorder=3,  # Below selected station markers but above candidates
+                zorder=3,
             )
             plt.gca().add_patch(circle)
 
@@ -233,14 +224,13 @@ class ChargingStationPlacer:
         plt.title(f"EV Charging Station Placement{title_suffix}")
         plt.legend(
             loc="upper right", bbox_to_anchor=(1.25, 1)
-        )  # Adjust legend position
+        )
         plt.grid(True, alpha=0.3)
-        plt.axis("equal")  # Important for circles to look like circles
-        plt.tight_layout(rect=[0, 0, 0.85, 1])  # Adjust layout to make space for legend
+        plt.axis("equal")
+        plt.tight_layout(rect=[0, 0, 0.85, 1])
         plt.show()
 
 
-# --- Generator for the original test instance ---
 def generate_uniform_random_instance(
     n_candidates: int,
     n_demands: int,
@@ -267,7 +257,6 @@ def generate_uniform_random_instance(
     return candidates, demands
 
 
-# --- New Generator Functions ---
 def generate_clustered_demands_instance(
     n_candidates: int,
     n_demands_per_cluster: int,
@@ -279,7 +268,6 @@ def generate_clustered_demands_instance(
     if seed is not None:
         np.random.seed(seed)
 
-    # Uniformly distributed candidates
     candidates = []
     for _ in range(n_candidates):
         x = np.random.uniform(0, area_size[0])
@@ -287,20 +275,16 @@ def generate_clustered_demands_instance(
         cost = np.random.uniform(5, 20)
         candidates.append(Location(x, y, cost=cost))
 
-    # Clustered demands
     demands = []
     for _ in range(n_clusters):
-        # Determine a center for this cluster
         center_x = np.random.uniform(cluster_spread, area_size[0] - cluster_spread)
         center_y = np.random.uniform(cluster_spread, area_size[1] - cluster_spread)
         for _ in range(n_demands_per_cluster):
-            # Generate demand points around the cluster center using a normal distribution
             x = np.random.normal(center_x, cluster_spread / 2)
             y = np.random.normal(center_y, cluster_spread / 2)
-            # Clip to stay within bounds (optional, or regenerate if out of bounds)
             x = np.clip(x, 0, area_size[0])
             y = np.clip(y, 0, area_size[1])
-            weight = np.random.uniform(2, 6)  # Higher weight for clustered demands
+            weight = np.random.uniform(2, 6)
             demands.append(Location(x, y, weight=weight))
     return candidates, demands
 
@@ -314,7 +298,6 @@ def generate_high_cost_prime_candidates_instance(
     if seed is not None:
         np.random.seed(seed)
 
-    # Generate demands (e.g., somewhat centered)
     demands = []
     center_area_x, center_area_y = area_size[0] / 2, area_size[1] / 2
     for _ in range(n_demands):
@@ -325,18 +308,17 @@ def generate_high_cost_prime_candidates_instance(
         weight = np.random.uniform(1, 5)
         demands.append(Location(x, y, weight=weight))
 
-    # Generate candidates: some cheap & remote, some expensive & central
     candidates = []
     num_prime_candidates = n_candidates // 3
     for i in range(n_candidates):
-        if i < num_prime_candidates:  # Prime, expensive candidates
+        if i < num_prime_candidates:
             x = np.random.normal(center_area_x, area_size[0] / 5)
             y = np.random.normal(center_area_y, area_size[1] / 5)
-            cost = np.random.uniform(25, 50)  # High cost
-        else:  # Cheaper, more spread out candidates
+            cost = np.random.uniform(25, 50)
+        else:
             x = np.random.uniform(0, area_size[0])
             y = np.random.uniform(0, area_size[1])
-            cost = np.random.uniform(5, 15)  # Low cost
+            cost = np.random.uniform(5, 15)
         x = np.clip(x, 0, area_size[0])
         y = np.clip(y, 0, area_size[1])
         candidates.append(Location(x, y, cost=cost))
@@ -351,7 +333,6 @@ def generate_limited_candidates_instance(
 ) -> Tuple[List[Location], List[Location]]:
     if seed is not None:
         np.random.seed(seed)
-    # Few candidates, potentially spread out
     candidates = []
     for _ in range(n_candidates):
         x = np.random.uniform(0, area_size[0])
@@ -359,7 +340,6 @@ def generate_limited_candidates_instance(
         cost = np.random.uniform(8, 12)
         candidates.append(Location(x, y, cost=cost))
 
-    # Many demands, potentially more than candidates can easily cover
     demands = []
     for _ in range(n_demands):
         x = np.random.uniform(0, area_size[0])
@@ -375,15 +355,11 @@ def run_and_visualize_instance(
     print(f"\n--- Running Instance: {title_suffix} ---")
     candidates, demands = generator_func(*args, **kwargs)
     placer = ChargingStationPlacer(candidates, demands, service_radius=service_radius)
-    placer.greedy_placement(k=k_stations, verbose=True)  # Set verbose True for details
+    placer.greedy_placement(k=k_stations, verbose=True)
     placer.visualize_solution(title_suffix=f" ({title_suffix})")
-    return placer  # Return for further analysis if needed
+    return placer
 
-
-# [run_performance_test function remains the same, or you can integrate these new generators]
-# ...
-
-
+    
 def run_performance_test():
     """Run performance tests on different problem sizes using uniform random instances."""
     problem_configs = [
@@ -418,7 +394,7 @@ def run_performance_test():
             "k": 5,
             "radius": 3.0,
             "seed": 101,
-        },  # 60 cand, 25 dem/cluster, 3 clusters
+        },
         {
             "name": "Medium High Cost Prime",
             "gen_func": generate_high_cost_prime_candidates_instance,
@@ -447,7 +423,7 @@ def run_performance_test():
         start_time = time.time()
         placer.greedy_placement(
             config["k"], verbose=False
-        )  # Keep verbose false for perf test
+        )
         execution_time = time.time() - start_time
 
         total_demand_points = len(placer.demands) if placer.demands else 1
@@ -470,7 +446,7 @@ def run_performance_test():
 
 # --- Main Execution Block ---
 if __name__ == "__main__":
-    # Instance 1: Original Uniform Random (for comparison)
+    # Instance 1: Uniform Random
     run_and_visualize_instance(
         generate_uniform_random_instance,
         k_stations=3,
@@ -540,9 +516,6 @@ if __name__ == "__main__":
     placer_high_radius = ChargingStationPlacer(
         candidates_var_rad, demands_var_rad, service_radius=3.5
     )
-    # Important: The ChargingStationPlacer state (selected_stations, covered_demands) is instance-specific.
-    # So using a new placer object is correct. If you reused placer_low_radius and just changed its radius,
-    # you'd need to reset its state before calling greedy_placement again.
     placer_high_radius.greedy_placement(k=3, verbose=True)
     placer_high_radius.visualize_solution(
         title_suffix=" (Clustered, High Radius R=3.5)"
